@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuis Cerdas Multiplayer</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+        :root {
+            --page-bg: #f0f4f8;
+            --container-bg: #ffffff;
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --secondary-color: #6c757d;
+            --secondary-hover: #5a6268;
+            --accent-color: #28a745;
+            --accent-hover: #218838;
+            --danger-color: #dc3545;
+            --danger-hover: #c82333;
+            --text-dark: #333333;
+            --text-light: #ffffff;
+            --border-color: #ced4da;
+            --shadow-light: rgba(0, 0, 0, 0.1);
+            --player1-color-text: #007bff;
+            --player2-color-text: #d93025;
+            --score-bubble-p1-bg: #007bff;
+            --score-bubble-p2-bg: #d93025;
+            --score-text-color: #ffffff;
+            --vs-text-color: #555555;
+            --question-bg: #e9ecef;
+            --answer-bg: #f8f9fa;
+            --answer-hover-bg: #e2e6ea;
+            --answer-correct-bg: #d4edda;
+            --answer-correct-border: #c3e6cb;
+            --answer-incorrect-bg: #f8d7da;
+            --answer-incorrect-border: #f5c6cb;
+            --timer-warning: #dc3545; /* Color for timer when time is low */
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: var(--page-bg);
+            color: var(--text-dark);
+            padding: 15px;
+        }
+
+        .section-container {
+            width: 100%; max-width: 500px; background-color: var(--container-bg);
+            padding: 25px; border-radius: 10px; box-shadow: 0 4px 15px var(--shadow-light);
+            margin-bottom: 20px;
+        }
+        .section-container h2 { margin-bottom: 20px; text-align: center; color: var(--primary-color); }
+        .section-container input[type="text"] {
+            width: 100%; padding: 12px; margin-bottom: 12px;
+            border: 1px solid var(--border-color); border-radius: 5px; font-size: 1em;
+        }
+        .section-container button {
+            width: 100%; padding: 12px 18px; font-size: 1em; cursor: pointer;
+            color: var(--text-light);
+            border: none; border-radius: 5px; margin-top: 8px; transition: background-color 0.2s;
+        }
+        .section-container button.primary-btn { background-color: var(--primary-color); }
+        .section-container button.primary-btn:hover { background-color: var(--primary-hover); }
+        .section-container button.accent-btn { background-color: var(--accent-color); }
+        .section-container button.accent-btn:hover { background-color: var(--accent-hover); }
+        .section-container button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        #availableGames { margin-top: 5px; margin-bottom: 15px; max-height: 150px; overflow-y: auto; border: 1px solid #eee; padding: 10px; display: none; background-color: #f9f9f9; border-radius: 5px;}
+        #availableGames ul { list-style-type: none; }
+        #availableGames li { padding: 10px 8px; border-bottom: 1px solid #e0e0e0; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; }
+        #availableGames li:last-child { border-bottom: none; }
+        .join-lobby-btn { background-color: var(--accent-color) !important; color: white !important; padding: 5px 10px !important; font-size: 0.85em !important; margin-left: 10px !important; border-radius: 4px !important; border: none !important; cursor: pointer !important; width: auto !important; margin-top: 0 !important; }
+        .join-lobby-btn:hover { background-color: var(--accent-hover) !important; }
+
+        .score-bar {
+            display: flex; justify-content: space-around; align-items: center; width: 100%;
+            max-width: 500px; padding: 12px 0; margin-bottom: 15px; background-color: var(--container-bg); border-radius: 8px; box-shadow: 0 2px 8px var(--shadow-light);
+        }
+        .player-score { display: flex; align-items: center; font-weight: 600; font-size: 0.95em; }
+        .player-score .name { margin: 0 10px; }
+        .player-score .score-bubble { width: 32px; height: 32px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: var(--score-text-color); font-weight: 700; font-size: 1.1em; }
+        .player-score.blue .name { color: var(--player1-color-text); }
+        .player-score.blue .score-bubble { background-color: var(--score-bubble-p1-bg); }
+        .player-score.red .name { color: var(--player2-color-text); }
+        .player-score.red .score-bubble { background-color: var(--score-bubble-p2-bg); }
+        .vs-separator { font-weight: 700; font-size: 1.3em; color: var(--vs-text-color); }
+
+        #gameIdDisplay { text-align: center; margin-bottom: 12px; font-weight: bold; color: var(--secondary-color); font-size: 0.9em; }
+        #messages {
+            text-align: center; font-weight: 500; min-height: 1.5em; margin-bottom: 15px; width: 100%; max-width: 500px;
+            padding: 8px; border-radius: 5px;
+        }
+        #messages.hidden-info { display: none !important; }
+        #messages.success { background-color: var(--answer-correct-bg); color: var(--accent-color);}
+        #messages.error { background-color: var(--answer-incorrect-bg); color: var(--danger-color);}
+        #messages.info { background-color: #e0f7fa; color: #007bff; }
+
+        .quiz-area { width: 100%; max-width: 500px; background-color: var(--container-bg); padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px var(--shadow-light); margin-bottom: 15px;}
+        #questionNumber { text-align: center; font-size: 0.9em; color: var(--secondary-color); margin-bottom: 10px; }
+        #questionDisplay {
+            background-color: var(--question-bg); padding: 15px; border-radius: 6px;
+            margin-bottom: 20px; min-height: 60px; display: flex; align-items: center; justify-content: center;
+            text-align: center; font-size: 1.1em; font-weight: 500;
+        }
+        #answerOptions { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        .answer-btn {
+            font-family: 'Poppins', sans-serif; font-size: 1em; padding: 12px;
+            border: 1px solid var(--border-color); border-radius: 5px; cursor: pointer;
+            background-color: var(--answer-bg); transition: background-color 0.2s, border-color 0.2s;
+            text-align: left;
+        }
+        .answer-btn:hover:not(:disabled) { background-color: var(--answer-hover-bg); }
+        .answer-btn:disabled { cursor: not-allowed; opacity: 0.7; }
+        .answer-btn.selected { background-color: var(--primary-color); color: var(--text-light); border-color: var(--primary-hover); }
+        .answer-btn.correct { background-color: var(--answer-correct-bg) !important; border-color: var(--answer-correct-border) !important; color: var(--text-dark) !important; }
+        .answer-btn.incorrect { background-color: var(--answer-incorrect-bg) !important; border-color: var(--answer-incorrect-border) !important; color: var(--text-dark) !important; }
+
+        #turnInfoDisplay { text-align: center; font-weight: 600; margin-top: 5px; font-size: 1.1em; color: var(--vs-text-color); min-height: 1.5em; padding: 8px; }
+        #turnTimerDisplay { text-align: center; font-weight: 500; font-size: 0.9em; color: var(--text-dark); margin-top: 5px; }
+        #turnTimerDisplay.warning { color: var(--timer-warning); font-weight: 600; }
+
+        .admin-controls { margin-top: 20px; display: flex; gap: 15px; justify-content: center; align-items: center; width: 100%; max-width: 500px; }
+        .admin-controls button { font-family: 'Poppins', sans-serif; font-size: 0.9em; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; color: var(--text-light); transition: background-color 0.3s; flex-grow: 1; }
+        #resetGameBtn { background-color: var(--secondary-color); }
+        #resetGameBtn:hover { background-color: var(--secondary-hover); }
+        #leaveGameBtn { background-color: var(--danger-color); }
+        #leaveGameBtn:hover { background-color: var(--danger-hover); }
+    </style>
+</head>
+<body>
+    <div id="loginSection" class="section-container">
+        <h2>Kuis Cerdas Multiplayer</h2>
+        <input type="text" id="playerNameInput" placeholder="Masukkan Nama Anda">
+        <button id="showAvailableGamesBtn" class="primary-btn" style="margin-bottom: 10px;">Lihat Game Tersedia</button>
+        <div id="availableGames">
+            <p><i>Memuat game... (atau tidak ada game)</i></p>
+        </div>
+        <input type="text" id="gameIdInput" placeholder="Masukkan ID Game (jika bergabung)">
+        <button id="joinOrCreateGameBtn" class="accent-btn">Gabung / Buat Game Baru</button>
+    </div>
+
+    <div id="gameSection" style="display:none; flex-direction: column; align-items: center; width:100%;">
+        <div class="score-bar">
+            <div class="player-score blue"> <span class="name" id="player1NameDisplay">Pemain 1</span>
+                <div class="score-bubble" id="scoreP1Display">0</div>
+            </div>
+            <div class="vs-separator">VS</div>
+            <div class="player-score red">
+                <div class="score-bubble" id="scoreP2Display">0</div> <span class="name" id="player2NameDisplay">Pemain 2</span>
+            </div>
+        </div>
+        <div id="gameIdDisplay">Game ID: ---</div>
+        <div id="messages" class="hidden-info"></div>
+
+        <div class="quiz-area">
+            <div id="questionNumber">Pertanyaan -/-</div>
+            <div id="questionDisplay">Memuat pertanyaan...</div>
+            <div id="answerOptions"></div>
+            <div id="turnTimerDisplay">Waktu: -- detik</div>
+        </div>
+
+        <div id="turnInfoDisplay">Menunggu permainan...</div>
+
+        <div class="admin-controls">
+            <button id="resetGameBtn">Reset Game</button>
+            <button id="leaveGameBtn">Keluar Game</button>
+        </div>
+    </div>
+
+    <script>
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx52nk8bKYmJLtsdZ7XCNGP6x7rU2wtBo38awYsVaOwgvtrcwVcbP5eSzokfjZdXV5N/exec";
+
+        const questionDisplayElement = document.getElementById('questionDisplay');
+        const questionNumberElement = document.getElementById('questionNumber');
+        const answerOptionsElement = document.getElementById('answerOptions');
+        const scoreP1DisplayElement = document.getElementById('scoreP1Display');
+        const scoreP2DisplayElement = document.getElementById('scoreP2Display');
+        const turnInfoDisplayElement = document.getElementById('turnInfoDisplay');
+        const turnTimerDisplayElement = document.getElementById('turnTimerDisplay');
+        const player1NameDisplay = document.getElementById('player1NameDisplay');
+        const player2NameDisplay = document.getElementById('player2NameDisplay');
+        const gameIdDisplayElement = document.getElementById('gameIdDisplay');
+        const messagesElement = document.getElementById('messages');
+
+        const resetGameButton = document.getElementById('resetGameBtn');
+        const showAvailableGamesBtn = document.getElementById('showAvailableGamesBtn');
+        const joinOrCreateGameBtn = document.getElementById('joinOrCreateGameBtn');
+        const leaveGameBtn = document.getElementById('leaveGameBtn');
+        const playerNameInput = document.getElementById('playerNameInput');
+        const gameIdInput = document.getElementById('gameIdInput');
+        const availableGamesDiv = document.getElementById('availableGames');
+
+        const MAX_QUESTIONS = 15;
+        const TURN_TIME_LIMIT = 30; // 30 seconds per turn
+
+        let gameStateFromServer = {};
+        let localPlayerName = "";
+        let currentGameId = null;
+        let localPlayerNumber = 0;
+        let pollingInterval = null;
+        let isMyTurn = false;
+        let currentQuestionData = null;
+        let answerSubmitted = false;
+        let turnTimer = null;
+        let timeRemaining = TURN_TIME_LIMIT;
+
+        function showScreen(screenName) {
+            document.getElementById('loginSection').style.display = (screenName === 'login') ? 'block' : 'none';
+            document.getElementById('gameSection').style.display = (screenName === 'game') ? 'flex' : 'none';
+            if (screenName === 'login') {
+                if (pollingInterval) clearInterval(pollingInterval);
+                pollingInterval = null;
+                clearTurnTimer();
+                availableGamesDiv.style.display = 'none';
+                if (gameIdDisplayElement) gameIdDisplayElement.textContent = 'Game ID: ---';
+                if (messagesElement) messagesElement.className = 'hidden-info';
+                if (turnTimerDisplayElement) turnTimerDisplayElement.textContent = 'Waktu: -- detik';
+            } else if (screenName === 'game') {
+                if (gameIdDisplayElement && currentGameId) {
+                    gameIdDisplayElement.textContent = `Game ID: ${currentGameId}`;
+                }
+                if (messagesElement) messagesElement.className = 'hidden-info';
+            }
+        }
+
+        function showMessage(text, type = 'info') {
+            if (!messagesElement) return;
+            messagesElement.textContent = text;
+            messagesElement.className = type;
+            if (text) {
+                setTimeout(() => {
+                    if (messagesElement.textContent === text) messagesElement.className = 'hidden-info';
+                }, 5000);
+            } else {
+                messagesElement.className = 'hidden-info';
+            }
+        }
+
+        async function callAppsScript(action, payload = {}, method = 'POST') {
+            const url = new URL(SCRIPT_URL);
+            let response;
+            const buttonsToDisable = [];
+            if (action === 'getGames') {
+                buttonsToDisable.push(showAvailableGamesBtn);
+            } else if (action === 'joinGame' || action === 'createGame') {
+                buttonsToDisable.push(joinOrCreateGameBtn, showAvailableGamesBtn);
+            } else if (action === 'resetGame') {
+                buttonsToDisable.push(resetGameButton);
+            } else if (action === 'submitAnswer') {
+                buttonsToDisable.push(...answerOptionsElement.querySelectorAll('.answer-btn'));
+            }
+            const originalButtonStates = buttonsToDisable.map(btn => ({ btn, disabled: btn.disabled }));
+            buttonsToDisable.forEach(btn => btn.disabled = true);
+
+            try {
+                if (method === 'GET') {
+                    url.searchParams.append('action', action);
+                    for (const key in payload) {
+                        url.searchParams.append(key, payload[key]);
+                    }
+                    response = await fetch(url);
+                } else {
+                    payload.action = action;
+                    response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'cors',
+                        body: JSON.stringify(payload),
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                    });
+                }
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Network error: ${response.status}. ${errorText}`);
+                }
+                const data = await response.json();
+                if (!data.success &&
+                    action !== 'getGames' &&
+                    !(action === 'getGameState' && data.error && data.error.includes("Game not found"))
+                   ) {
+                    throw new Error(data.error || `API call (${action}) failed without specific server error.`);
+                }
+                return data;
+            } catch (error) {
+                console.error(`Error in callAppsScript (${action}):`, error.message);
+                if (!(action === 'getGameState' && pollingInterval && error.message.includes("Game not found"))) {
+                    showMessage(`Error: ${error.message}`, 'error');
+                }
+                throw error;
+            } finally {
+                originalButtonStates.forEach(({ btn, disabled }) => {
+                    btn.disabled = disabled;
+                });
+                if (action !== 'submitAnswer' && isMyTurn && gameStateFromServer && !gameStateFromServer.gameOver && gameStateFromServer.gameStatus === 'playing' && !answerSubmitted) {
+                    answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = false);
+                }
+                if (action !== 'resetGame' && resetGameButton) {
+                    resetGameButton.disabled = !(localPlayerNumber === 1 || (gameStateFromServer && gameStateFromServer.gameOver));
+                }
+                if (leaveGameBtn) {
+                    leaveGameBtn.disabled = !currentGameId;
+                }
+            }
+        }
+
+        function initLocalGameUI() {
+            if (messagesElement) messagesElement.className = 'hidden-info';
+            if (gameIdDisplayElement && currentGameId) {
+                gameIdDisplayElement.textContent = `Game ID: ${currentGameId}`;
+            }
+            answerSubmitted = false;
+            clearTurnTimer();
+        }
+
+        function displayQuestionAndOptions(questionData) {
+            if (!questionData || !questionData.question) {
+                questionDisplayElement.textContent = "Menunggu pertanyaan...";
+                answerOptionsElement.innerHTML = "";
+                questionNumberElement.textContent = `Pertanyaan -/${MAX_QUESTIONS}`;
+                return;
+            }
+            currentQuestionData = questionData;
+            questionDisplayElement.textContent = questionData.question;
+            questionNumberElement.textContent = `Pertanyaan ${gameStateFromServer.currentQuestionIndex + 1}/${MAX_QUESTIONS}`;
+            answerOptionsElement.innerHTML = "";
+
+            questionData.options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.classList.add('answer-btn');
+                button.dataset.choice = option;
+                button.innerHTML = `<span style="font-weight:bold; margin-right: 8px;">${String.fromCharCode(65 + index)}.</span> ${option}`;
+                button.addEventListener('click', handleAnswerClick);
+                button.disabled = !isMyTurn || answerSubmitted;
+                answerOptionsElement.appendChild(button);
+            });
+        }
+
+        function startTurnTimer() {
+            clearTurnTimer();
+            timeRemaining = TURN_TIME_LIMIT;
+            turnTimerDisplayElement.textContent = `Waktu: ${timeRemaining} detik`;
+            turnTimerDisplayElement.className = '';
+
+            turnTimer = setInterval(async () => {
+                timeRemaining--;
+                if (timeRemaining <= 0) {
+                    clearTurnTimer();
+                    if (isMyTurn && !answerSubmitted && currentGameId && currentQuestionData) {
+                        answerSubmitted = true;
+                        answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = true);
+                        try {
+                            const gs = await callAppsScript('submitAnswer', {
+                                gameId: currentGameId,
+                                playerName: localPlayerName,
+                                answer: ""
+                            });
+                            updateUIFromGameState(gs);
+                            showMessage("Waktu habis! Jawaban kosong dikirim.", 'error');
+                        } catch (error) {
+                            console.error("Error submitting blank answer on timeout:", error);
+                            showMessage("Gagal mengirim jawaban kosong. Coba lagi.", 'error');
+                            answerSubmitted = false;
+                            if (isMyTurn) {
+                                answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = false);
+                            }
+                        }
+                    }
+                } else {
+                    turnTimerDisplayElement.textContent = `Waktu: ${timeRemaining} detik`;
+                    if (timeRemaining <= 5) {
+                        turnTimerDisplayElement.className = 'warning';
+                    }
+                }
+            }, 1000);
+        }
+
+        function clearTurnTimer() {
+            if (turnTimer) {
+                clearInterval(turnTimer);
+                turnTimer = null;
+            }
+            timeRemaining = TURN_TIME_LIMIT;
+            if (turnTimerDisplayElement) {
+                turnTimerDisplayElement.textContent = 'Waktu: -- detik';
+                turnTimerDisplayElement.className = '';
+            }
+        }
+
+        async function handleAnswerClick(event) {
+            if (!isMyTurn || !currentGameId || !currentQuestionData || answerSubmitted) return;
+
+            const chosenButton = event.currentTarget;
+            const chosenAnswer = chosenButton.dataset.choice;
+            answerSubmitted = true;
+            clearTurnTimer();
+
+            answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => {
+                btn.disabled = true;
+                if (btn === chosenButton) {
+                    btn.classList.add('selected');
+                }
+            });
+
+            try {
+                const gs = await callAppsScript('submitAnswer', {
+                    gameId: currentGameId,
+                    playerName: localPlayerName,
+                    answer: chosenAnswer
+                });
+                updateUIFromGameState(gs);
+            } catch (error) {
+                console.error("Error submitting answer:", error);
+                showMessage("Gagal mengirim jawaban. Coba lagi.", 'error');
+                answerSubmitted = false;
+                if (isMyTurn) {
+                    answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => {
+                        btn.disabled = false;
+                        btn.classList.remove('selected');
+                    });
+                }
+            }
+        }
+
+        function updateUIFromGameState(gameState) {
+            gameStateFromServer = {...gameState};
+
+            if (!gameState || (!gameState.gameId && (!gameState.action || (gameState.action !== 'getGames' && gameState.action !== 'getGameState')))) {
+                console.warn("Invalid or incomplete gameState for UI update:", gameState);
+                if (gameState && gameState.error === "Game not found" && currentGameId) {
+                    showMessage("Sesi game ini tidak ditemukan atau telah berakhir.", 'error');
+                    leaveCurrentGame();
+                }
+                return;
+            }
+
+            currentGameId = gameState.gameId || currentGameId;
+            if (gameIdDisplayElement && currentGameId) {
+                gameIdDisplayElement.textContent = `Game ID: ${currentGameId}`;
+            }
+
+            if (typeof gameState.scores !== 'undefined') {
+                player1NameDisplay.textContent = gameState.player1 ? gameState.player1.name : "Pemain 1";
+                player2NameDisplay.textContent = gameState.player2 ? gameState.player2.name : (gameState.gameStatus === "waiting_for_player2" ? "Menunggu..." : "Pemain 2");
+                scoreP1DisplayElement.textContent = gameState.scores[1];
+                scoreP2DisplayElement.textContent = gameState.scores[2];
+            }
+
+            isMyTurn = (localPlayerNumber === gameState.currentPlayerNum) && !gameState.gameOver && gameState.gameStatus === "playing";
+
+            if (gameState.currentQuestion) {
+                if (!currentQuestionData || currentQuestionData.question !== gameState.currentQuestion.question) {
+                    answerSubmitted = false;
+                }
+                displayQuestionAndOptions(gameState.currentQuestion);
+            } else if (!gameState.gameOver) {
+                questionDisplayElement.textContent = "Memuat pertanyaan...";
+                answerOptionsElement.innerHTML = "";
+                questionNumberElement.textContent = `Pertanyaan ${gameState.currentQuestionIndex !== undefined ? gameState.currentQuestionIndex + 1 : '-'}/${MAX_QUESTIONS}`;
+            }
+
+            if (gameState.feedback) {
+                const { answered, correctAnswer, yourAnswer } = gameState.feedback;
+                showMessage(answered, answered.includes("Benar") ? 'success' : (answered.includes("Salah") ? 'error' : 'info'));
+
+                answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => {
+                    btn.disabled = true;
+                    btn.classList.remove('selected');
+                    if (btn.dataset.choice === correctAnswer) {
+                        btn.classList.add('correct');
+                    } else if (btn.dataset.choice === yourAnswer && correctAnswer !== yourAnswer) {
+                        btn.classList.add('incorrect');
+                    }
+                });
+            } else if (!gameState.gameOver && isMyTurn && !answerSubmitted) {
+                answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => {
+                    btn.disabled = false;
+                    btn.classList.remove('correct', 'incorrect', 'selected');
+                });
+            } else {
+                answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => {
+                    btn.disabled = true;
+                });
+            }
+
+            let turnText = "";
+            let turnColor = 'var(--vs-text-color)';
+
+            if (gameState.gameOver) {
+                turnText = gameState.winner === "Draw" ? "Permainan SERI!" : `${gameState.winnerName} MENANG!`;
+                turnColor = gameState.winner === "Draw" ? 'var(--vs-text-color)' : (gameState.winner === 1 ? 'var(--player1-color-text)' : 'var(--player2-color-text)');
+                if (pollingInterval) clearInterval(pollingInterval);
+                pollingInterval = null;
+                clearTurnTimer();
+                questionDisplayElement.textContent = "Permainan Selesai!";
+                if (!gameState.feedback) {
+                    answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = true);
+                }
+            } else if (gameState.gameStatus === "waiting_for_player2") {
+                turnText = "Menunggu Pemain 2 bergabung...";
+                questionDisplayElement.textContent = "Menunggu pemain lain...";
+                answerOptionsElement.innerHTML = "";
+                clearTurnTimer();
+            } else if (gameState.gameStatus === "playing") {
+                const currentPlayerDetails = gameState.currentPlayerNum === 1 ? gameState.player1 : gameState.player2;
+                turnText = `Giliran: ${currentPlayerDetails ? currentPlayerDetails.name : ('Pemain ' + gameState.currentPlayerNum)}`;
+                turnColor = gameState.currentPlayerNum === 1 ? 'var(--player1-color-text)' : 'var(--player2-color-text)';
+                if (isMyTurn && !answerSubmitted && !gameState.feedback) {
+                    startTurnTimer();
+                } else {
+                    clearTurnTimer();
+                }
+            } else {
+                turnText = "Menunggu permainan...";
+                clearTurnTimer();
+            }
+            turnInfoDisplayElement.textContent = turnText;
+            turnInfoDisplayElement.style.color = turnColor;
+
+            if (resetGameButton) resetGameButton.disabled = !(localPlayerNumber === 1 || gameState.gameOver);
+            if (leaveGameBtn) leaveGameBtn.disabled = (!currentGameId && !gameState.gameOver);
+        }
+
+        async function handleJoinOrCreateGame() {
+            localPlayerName = playerNameInput.value.trim();
+            if (!localPlayerName) {
+                showMessage("Masukkan Nama Anda!", 'error');
+                playerNameInput.focus();
+                return;
+            }
+            const gameIdToJoin = gameIdInput.value.trim().toUpperCase();
+            try {
+                let gs;
+                if (gameIdToJoin) {
+                    showMessage("Mencoba bergabung ke game...", 'info');
+                    gs = await callAppsScript('joinGame', { gameId: gameIdToJoin, playerName: localPlayerName });
+                } else {
+                    showMessage("Membuat game baru...", 'info');
+                    gs = await callAppsScript('createGame', { playerName: localPlayerName });
+                }
+                currentGameId = gs.gameId;
+                localPlayerNumber = gs.playerNum;
+                gameStateFromServer = {...gs};
+
+                initLocalGameUI();
+                updateUIFromGameState(gs);
+                showScreen('game');
+                if (pollingInterval) clearInterval(pollingInterval);
+                pollingInterval = setInterval(fetchCurrentGameState, 3000);
+            } catch (error) {
+                console.error("Error in Join/Create: ", error.message);
+            }
+        }
+
+        async function fetchCurrentGameState() {
+            if (!currentGameId || !pollingInterval) return;
+            try {
+                const gs = await callAppsScript('getGameState', { gameId: currentGameId }, 'GET');
+                if (pollingInterval && gs.success) {
+                    updateUIFromGameState(gs);
+                } else if (pollingInterval && !gs.success && gs.error && gs.error.includes("Game not found")) {
+                    showMessage("Sesi game tidak ditemukan atau telah berakhir.", 'error');
+                    leaveCurrentGame();
+                }
+            } catch (error) { /* Error handled by callAppsScript */ }
+        }
+
+        async function handleResetGame() {
+            if (!currentGameId) return;
+            if (!confirm("Yakin ingin mereset game ini? Ini akan memulai kuis baru dengan pertanyaan acak.")) return;
+            try {
+                clearTurnTimer();
+                const gs = await callAppsScript('resetGame', { gameId: currentGameId, playerName: localPlayerName });
+                updateUIFromGameState(gs);
+                showMessage("Game direset. Kuis baru dimulai.", 'info');
+                answerSubmitted = false;
+                if (pollingInterval) clearInterval(pollingInterval);
+                if (!gs.gameOver && (gs.gameStatus === "playing" || gs.gameStatus === "waiting_for_player2")) {
+                    pollingInterval = setInterval(fetchCurrentGameState, 3000);
+                }
+            } catch (error) { /* Handled by callAppsScript */ }
+        }
+
+        function leaveCurrentGame() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            pollingInterval = null;
+            clearTurnTimer();
+            const oldGameId = currentGameId;
+            currentGameId = null;
+            localPlayerNumber = 0;
+            isMyTurn = false;
+            gameStateFromServer = {};
+            currentQuestionData = null;
+            answerSubmitted = false;
+
+            showScreen('login');
+            if (gameIdInput) gameIdInput.value = "";
+            if (messagesElement) messagesElement.className = 'hidden-info';
+            if (availableGamesDiv) availableGamesDiv.style.display = 'none';
+            if (turnInfoDisplayElement) turnInfoDisplayElement.textContent = "Menunggu permainan...";
+            if (scoreP1DisplayElement) scoreP1DisplayElement.textContent = "0";
+            if (scoreP2DisplayElement) scoreP2DisplayElement.textContent = "0";
+            if (player1NameDisplay) player1NameDisplay.textContent = "Pemain 1";
+            if (player2NameDisplay) player2NameDisplay.textContent = "Pemain 2";
+            if (questionDisplayElement) questionDisplayElement.textContent = "Memuat pertanyaan...";
+            if (answerOptionsElement) answerOptionsElement.innerHTML = "";
+            if (questionNumberElement) questionNumberElement.textContent = "Pertanyaan -/-";
+
+            showMessage(`Anda telah keluar dari game ${oldGameId || ""}.`, 'info');
+        }
+
+        async function fetchAvailableGames() {
+            if (!availableGamesDiv) return;
+            availableGamesDiv.innerHTML = '<p><i>Memuat daftar game...</i></p>';
+            try {
+                const data = await callAppsScript('getGames', {}, 'GET');
+                if (data.success && data.games && data.games.length > 0) {
+                    let gameListHtml = '<ul>';
+                    data.games.forEach(g => {
+                        let joinButtonHtml = '';
+                        if (g.status === 'waiting_for_player2' && !g.player2) {
+                            joinButtonHtml = `<button class="join-lobby-btn" data-gameid="${g.gameId}">Gabung</button>`;
+                        }
+                        gameListHtml += `<li><span>ID: ${g.gameId} (P1: ${g.player1Name || '?'}, P2: ${g.player2Name || (g.status === 'waiting_for_player2' ? 'Kosong' : '?')}) - Status: ${g.statusDisplay || g.status}</span> ${joinButtonHtml}</li>`;
+                    });
+                    gameListHtml += '</ul>';
+                    availableGamesDiv.innerHTML = gameListHtml;
+
+                    document.querySelectorAll('.join-lobby-btn').forEach(button => {
+                        button.addEventListener('click', (e) => {
+                            const gameIdFromLobby = e.target.dataset.gameid;
+                            if (gameIdInput) gameIdInput.value = gameIdFromLobby;
+                            localPlayerName = playerNameInput.value.trim();
+                            if (!localPlayerName) {
+                                showMessage("Masukkan Nama Anda terlebih dahulu untuk bergabung dari lobi!", 'error');
+                                playerNameInput.focus();
+                                return;
+                            }
+                            handleJoinOrCreateGame();
+                        });
+                    });
+                } else {
+                    availableGamesDiv.innerHTML = '<p><i>Tidak ada game tersedia. Buat yang baru!</i></p>';
+                }
+            } catch (error) {
+                if (availableGamesDiv) availableGamesDiv.innerHTML = `<p><i>Gagal memuat game. ${error.message}</i></p>`;
+            }
+        }
+
+        if (showAvailableGamesBtn) showAvailableGamesBtn.addEventListener('click', () => {
+            if (availableGamesDiv.style.display === 'none' || availableGamesDiv.style.display === '') {
+                availableGamesDiv.style.display = 'block';
+                fetchAvailableGames();
+            } else {
+                availableGamesDiv.style.display = 'none';
+            }
+        });
+        if (joinOrCreateGameBtn) joinOrCreateGameBtn.addEventListener('click', handleJoinOrCreateGame);
+        if (resetGameButton) resetGameButton.addEventListener('click', handleResetGame);
+        if (leaveGameBtn) leaveGameBtn.addEventListener('click', () => {
+            if (confirm("Yakin ingin keluar dari game ini?")) {
+                leaveCurrentGame();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            showScreen('login');
+            document.querySelectorAll('input[type="text"]').forEach(input => {
+                input.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (input === playerNameInput && gameIdInput.value === '') {
+                            showAvailableGamesBtn.click();
+                        } else if (input === playerNameInput && gameIdInput.value !== '') {
+                            gameIdInput.focus();
+                        } else if (input === gameIdInput) {
+                            joinOrCreateGameBtn.click();
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
