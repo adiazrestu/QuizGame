@@ -141,9 +141,7 @@
             <p><i>Memuat game... (atau tidak ada game)</i></p>
         </div>
         <input type="text" id="gameIdInput" placeholder="Masukkan ID Game (jika bergabung)">
-        
         <input type="text" id="customTopicInput" placeholder="Tulis Topik Kuis (saat buat game baru)">
-
         <button id="joinOrCreateGameBtn" class="accent-btn">Gabung / Buat Game Baru</button>
     </div>
 
@@ -176,7 +174,6 @@
     </div>
 
     <script>
-        // SCRIPT_URL Anda tetap sama
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx52nk8bKYmJLtsdZ7XCNGP6x7rU2wtBo38awYsVaOwgvtrcwVcbP5eSzokfjZdXV5N/exec";
 
         const questionDisplayElement = document.getElementById('questionDisplay');
@@ -198,7 +195,7 @@
         const playerNameInput = document.getElementById('playerNameInput');
         const gameIdInput = document.getElementById('gameIdInput');
         const availableGamesDiv = document.getElementById('availableGames');
-        const customTopicInput = document.getElementById('customTopicInput'); // KODE BARU
+        const customTopicInput = document.getElementById('customTopicInput');
 
         const MAX_QUESTIONS = 14;
 
@@ -210,6 +207,9 @@
         let isMyTurn = false;
         let currentQuestionData = null;
         let answerSubmitted = false;
+        let timerInterval = null;
+        let timeLeft = 30;
+        let lastPlayerTurn = null;
 
         function showScreen(screenName) {
             document.getElementById('loginSection').style.display = (screenName === 'login') ? 'block' : 'none';
@@ -217,6 +217,7 @@
             if (screenName === 'login') {
                 if (pollingInterval) clearInterval(pollingInterval);
                 pollingInterval = null;
+                clearTurnTimer();
                 availableGamesDiv.style.display = 'none';
                 if (gameIdDisplayElement) gameIdDisplayElement.textContent = 'Game ID: ---';
                 if (messagesElement) messagesElement.className = 'hidden-info';
@@ -315,6 +316,37 @@
                 gameIdDisplayElement.textContent = `Game ID: ${currentGameId}`;
             }
             answerSubmitted = false;
+        }
+
+        function clearTurnTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            timeLeft = 30;
+            if (turnTimerDisplayElement) {
+                turnTimerDisplayElement.textContent = 'Waktu: 30 detik';
+            }
+        }
+
+        function startTurnTimer() {
+            clearTurnTimer();
+            timeLeft = 30;
+            if (turnTimerDisplayElement) {
+                turnTimerDisplayElement.textContent = `Waktu: ${timeLeft} detik`;
+            }
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                if (timeLeft < 0) {
+                    timeLeft = 0;
+                }
+                if (turnTimerDisplayElement) {
+                    turnTimerDisplayElement.textContent = `Waktu: ${timeLeft} detik`;
+                }
+                if (timeLeft <= 0 && timerInterval) {
+                    clearTurnTimer();
+                }
+            }, 1000);
         }
 
         function displayQuestionAndOptions(questionData) {
@@ -441,21 +473,27 @@
             if (gameState.gameOver) {
                 turnText = gameState.winner === "Draw" ? "Permainan SERI!" : `${gameState.winnerName} MENANG!`;
                 turnColor = gameState.winner === "Draw" ? 'var(--vs-text-color)' : (gameState.winner === 1 ? 'var(--player1-color-text)' : 'var(--player2-color-text)');
-                
                 questionDisplayElement.textContent = "Permainan Selesai!";
                 if (!gameState.feedback) {
                     answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = true);
                 }
+                clearTurnTimer();
             } else if (gameState.gameStatus === "waiting_for_player2") {
                 turnText = "Menunggu Pemain 2 bergabung...";
                 questionDisplayElement.textContent = "Menunggu pemain lain...";
                 answerOptionsElement.innerHTML = "";
+                clearTurnTimer();
             } else if (gameState.gameStatus === "playing") {
                 const currentPlayerDetails = gameState.currentPlayerNum === 1 ? gameState.player1 : gameState.player2;
                 turnText = `Giliran: ${currentPlayerDetails ? currentPlayerDetails.name : ('Pemain ' + gameState.currentPlayerNum)}`;
                 turnColor = gameState.currentPlayerNum === 1 ? 'var(--player1-color-text)' : 'var(--player2-color-text)';
+                if (lastPlayerTurn !== gameState.currentPlayerNum) {
+                    startTurnTimer();
+                    lastPlayerTurn = gameState.currentPlayerNum;
+                }
             } else {
                 turnText = "Menunggu permainan...";
+                clearTurnTimer();
             }
             turnInfoDisplayElement.textContent = turnText;
             turnInfoDisplayElement.style.color = turnColor;
@@ -478,12 +516,11 @@
                     showMessage("Mencoba bergabung ke game...", 'info');
                     gs = await callAppsScript('joinGame', { gameId: gameIdToJoin, playerName: localPlayerName });
                 } else {
-                    // KODE BARU: Kirim topik kustom saat membuat game
                     const customTopic = customTopicInput.value.trim();
                     showMessage("Membuat game baru...", 'info');
                     gs = await callAppsScript('createGame', { 
                         playerName: localPlayerName, 
-                        topic: customTopic // Kirim topik ke backend
+                        topic: customTopic
                     });
                 }
                 currentGameId = gs.gameId;
@@ -517,12 +554,12 @@
             if (!currentGameId) return;
             if (!confirm("Yakin ingin mereset game ini? Ini akan memulai kuis baru dengan pertanyaan acak.")) return;
             try {
-                // Saat reset, topik akan diambil dari server (jika ada) atau dibuat acak
-                // Tidak perlu mengirim topik lagi dari klien
                 const gs = await callAppsScript('resetGame', { gameId: currentGameId, playerName: localPlayerName });
                 updateUIFromGameState(gs);
                 showMessage("Game direset. Kuis baru dimulai.", 'info');
                 answerSubmitted = false;
+                clearTurnTimer();
+                lastPlayerTurn = null;
                 if (pollingInterval) clearInterval(pollingInterval);
                 if (!gs.gameOver && (gs.gameStatus === "playing" || gs.gameStatus === "waiting_for_player2")) {
                     pollingInterval = setInterval(fetchCurrentGameState, 3000);
@@ -535,6 +572,7 @@
         function leaveCurrentGame() {
             if (pollingInterval) clearInterval(pollingInterval);
             pollingInterval = null;
+            clearTurnTimer();
             const oldGameId = currentGameId;
             currentGameId = null;
             localPlayerNumber = 0;
@@ -542,10 +580,11 @@
             gameStateFromServer = {};
             currentQuestionData = null;
             answerSubmitted = false;
+            lastPlayerTurn = null;
 
             showScreen('login');
             if (gameIdInput) gameIdInput.value = "";
-            if (customTopicInput) customTopicInput.value = ""; // KODE BARU
+            if (customTopicInput) customTopicInput.value = "";
             if (messagesElement) messagesElement.className = 'hidden-info';
             if (availableGamesDiv) availableGamesDiv.style.display = 'none';
             if (turnInfoDisplayElement) turnInfoDisplayElement.textContent = "Menunggu permainan...";
@@ -572,7 +611,6 @@
                         if (g.status === 'waiting_for_player2' && !g.player2) {
                             joinButtonHtml = `<button class="join-lobby-btn" data-gameid="${g.gameId}">Gabung</button>`;
                         }
-                        // Menampilkan topik jika ada
                         const topicDisplay = g.topic ? `Topik: ${g.topic}` : `Status: ${g.statusDisplay || g.status}`;
                         gameListHtml += `<li><span>ID: ${g.gameId} (P1: ${g.player1Name || '?'}) - ${topicDisplay}</span> ${joinButtonHtml}</li>`;
                     });
