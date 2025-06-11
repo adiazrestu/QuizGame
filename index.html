@@ -436,8 +436,11 @@
             if (gameState.gameOver) {
                 turnText = gameState.winner === "Draw" ? "Permainan SERI!" : `${gameState.winnerName} MENANG!`;
                 turnColor = gameState.winner === "Draw" ? 'var(--vs-text-color)' : (gameState.winner === 1 ? 'var(--player1-color-text)' : 'var(--player2-color-text)');
-                if (pollingInterval) clearInterval(pollingInterval);
-                pollingInterval = null;
+                
+                // PERUBAHAN: Baris di bawah ini dikomentari agar poling tidak berhenti saat game over
+                // if (pollingInterval) clearInterval(pollingInterval);
+                // pollingInterval = null;
+                
                 questionDisplayElement.textContent = "Permainan Selesai!";
                 if (!gameState.feedback) {
                     answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = true);
@@ -514,6 +517,9 @@
                 answerSubmitted = false;
                 if (pollingInterval) clearInterval(pollingInterval);
                 if (!gs.gameOver && (gs.gameStatus === "playing" || gs.gameStatus === "waiting_for_player2")) {
+                    pollingInterval = setInterval(fetchCurrentGameState, 3000);
+                } else if (gs.gameOver) {
+                    // Jika setelah reset game langsung over (misal karena error), pastikan poling tetap jalan
                     pollingInterval = setInterval(fetchCurrentGameState, 3000);
                 }
             } catch (error) { /* Handled by callAppsScript */ }
