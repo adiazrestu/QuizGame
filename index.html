@@ -141,6 +141,9 @@
             <p><i>Memuat game... (atau tidak ada game)</i></p>
         </div>
         <input type="text" id="gameIdInput" placeholder="Masukkan ID Game (jika bergabung)">
+        
+        <input type="text" id="customTopicInput" placeholder="Tulis Topik Kuis (saat buat game baru)">
+
         <button id="joinOrCreateGameBtn" class="accent-btn">Gabung / Buat Game Baru</button>
     </div>
 
@@ -173,6 +176,7 @@
     </div>
 
     <script>
+        // SCRIPT_URL Anda tetap sama
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx52nk8bKYmJLtsdZ7XCNGP6x7rU2wtBo38awYsVaOwgvtrcwVcbP5eSzokfjZdXV5N/exec";
 
         const questionDisplayElement = document.getElementById('questionDisplay');
@@ -194,6 +198,7 @@
         const playerNameInput = document.getElementById('playerNameInput');
         const gameIdInput = document.getElementById('gameIdInput');
         const availableGamesDiv = document.getElementById('availableGames');
+        const customTopicInput = document.getElementById('customTopicInput'); // KODE BARU
 
         const MAX_QUESTIONS = 14;
 
@@ -437,10 +442,6 @@
                 turnText = gameState.winner === "Draw" ? "Permainan SERI!" : `${gameState.winnerName} MENANG!`;
                 turnColor = gameState.winner === "Draw" ? 'var(--vs-text-color)' : (gameState.winner === 1 ? 'var(--player1-color-text)' : 'var(--player2-color-text)');
                 
-                // PERUBAHAN: Baris di bawah ini dikomentari agar poling tidak berhenti saat game over
-                // if (pollingInterval) clearInterval(pollingInterval);
-                // pollingInterval = null;
-                
                 questionDisplayElement.textContent = "Permainan Selesai!";
                 if (!gameState.feedback) {
                     answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = true);
@@ -477,8 +478,13 @@
                     showMessage("Mencoba bergabung ke game...", 'info');
                     gs = await callAppsScript('joinGame', { gameId: gameIdToJoin, playerName: localPlayerName });
                 } else {
+                    // KODE BARU: Kirim topik kustom saat membuat game
+                    const customTopic = customTopicInput.value.trim();
                     showMessage("Membuat game baru...", 'info');
-                    gs = await callAppsScript('createGame', { playerName: localPlayerName });
+                    gs = await callAppsScript('createGame', { 
+                        playerName: localPlayerName, 
+                        topic: customTopic // Kirim topik ke backend
+                    });
                 }
                 currentGameId = gs.gameId;
                 localPlayerNumber = gs.playerNum;
@@ -511,6 +517,8 @@
             if (!currentGameId) return;
             if (!confirm("Yakin ingin mereset game ini? Ini akan memulai kuis baru dengan pertanyaan acak.")) return;
             try {
+                // Saat reset, topik akan diambil dari server (jika ada) atau dibuat acak
+                // Tidak perlu mengirim topik lagi dari klien
                 const gs = await callAppsScript('resetGame', { gameId: currentGameId, playerName: localPlayerName });
                 updateUIFromGameState(gs);
                 showMessage("Game direset. Kuis baru dimulai.", 'info');
@@ -519,7 +527,6 @@
                 if (!gs.gameOver && (gs.gameStatus === "playing" || gs.gameStatus === "waiting_for_player2")) {
                     pollingInterval = setInterval(fetchCurrentGameState, 3000);
                 } else if (gs.gameOver) {
-                    // Jika setelah reset game langsung over (misal karena error), pastikan poling tetap jalan
                     pollingInterval = setInterval(fetchCurrentGameState, 3000);
                 }
             } catch (error) { /* Handled by callAppsScript */ }
@@ -538,6 +545,7 @@
 
             showScreen('login');
             if (gameIdInput) gameIdInput.value = "";
+            if (customTopicInput) customTopicInput.value = ""; // KODE BARU
             if (messagesElement) messagesElement.className = 'hidden-info';
             if (availableGamesDiv) availableGamesDiv.style.display = 'none';
             if (turnInfoDisplayElement) turnInfoDisplayElement.textContent = "Menunggu permainan...";
@@ -564,7 +572,9 @@
                         if (g.status === 'waiting_for_player2' && !g.player2) {
                             joinButtonHtml = `<button class="join-lobby-btn" data-gameid="${g.gameId}">Gabung</button>`;
                         }
-                        gameListHtml += `<li><span>ID: ${g.gameId} (P1: ${g.player1Name || '?'}, P2: ${g.player2Name || (g.status === 'waiting_for_player2' ? 'Kosong' : '?')}) - Status: ${g.statusDisplay || g.status}</span> ${joinButtonHtml}</li>`;
+                        // Menampilkan topik jika ada
+                        const topicDisplay = g.topic ? `Topik: ${g.topic}` : `Status: ${g.statusDisplay || g.status}`;
+                        gameListHtml += `<li><span>ID: ${g.gameId} (P1: ${g.player1Name || '?'}) - ${topicDisplay}</span> ${joinButtonHtml}</li>`;
                     });
                     gameListHtml += '</ul>';
                     availableGamesDiv.innerHTML = gameListHtml;
@@ -612,13 +622,7 @@
                 input.addEventListener('keypress', function (e) {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        if (input === playerNameInput && gameIdInput.value === '') {
-                            showAvailableGamesBtn.click();
-                        } else if (input === playerNameInput && gameIdInput.value !== '') {
-                            gameIdInput.focus();
-                        } else if (input === gameIdInput) {
-                            joinOrCreateGameBtn.click();
-                        }
+                        joinOrCreateGameBtn.click();
                     }
                 });
             });
