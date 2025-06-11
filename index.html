@@ -35,7 +35,6 @@
             --answer-correct-border: #c3e6cb;
             --answer-incorrect-bg: #f8d7da;
             --answer-incorrect-border: #f5c6cb;
-            --timer-warning: #dc3545; /* Color for timer when time is low */
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -124,7 +123,6 @@
 
         #turnInfoDisplay { text-align: center; font-weight: 600; margin-top: 5px; font-size: 1.1em; color: var(--vs-text-color); min-height: 1.5em; padding: 8px; }
         #turnTimerDisplay { text-align: center; font-weight: 500; font-size: 0.9em; color: var(--text-dark); margin-top: 5px; }
-        #turnTimerDisplay.warning { color: var(--timer-warning); font-weight: 600; }
 
         .admin-controls { margin-top: 20px; display: flex; gap: 15px; justify-content: center; align-items: center; width: 100%; max-width: 500px; }
         .admin-controls button { font-family: 'Poppins', sans-serif; font-size: 0.9em; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; color: var(--text-light); transition: background-color 0.3s; flex-grow: 1; }
@@ -163,7 +161,7 @@
             <div id="questionNumber">Pertanyaan -/-</div>
             <div id="questionDisplay">Memuat pertanyaan...</div>
             <div id="answerOptions"></div>
-            <div id="turnTimerDisplay">Waktu: -- detik</div>
+            <div id="turnTimerDisplay">Waktu: 30 detik</div>
         </div>
 
         <div id="turnInfoDisplay">Menunggu permainan...</div>
@@ -197,8 +195,7 @@
         const gameIdInput = document.getElementById('gameIdInput');
         const availableGamesDiv = document.getElementById('availableGames');
 
-        const MAX_QUESTIONS = 15;
-        const TURN_TIME_LIMIT = 30; // 30 seconds per turn
+        const MAX_QUESTIONS = 14;
 
         let gameStateFromServer = {};
         let localPlayerName = "";
@@ -208,8 +205,6 @@
         let isMyTurn = false;
         let currentQuestionData = null;
         let answerSubmitted = false;
-        let turnTimer = null;
-        let timeRemaining = TURN_TIME_LIMIT;
 
         function showScreen(screenName) {
             document.getElementById('loginSection').style.display = (screenName === 'login') ? 'block' : 'none';
@@ -217,11 +212,10 @@
             if (screenName === 'login') {
                 if (pollingInterval) clearInterval(pollingInterval);
                 pollingInterval = null;
-                clearTurnTimer();
                 availableGamesDiv.style.display = 'none';
                 if (gameIdDisplayElement) gameIdDisplayElement.textContent = 'Game ID: ---';
                 if (messagesElement) messagesElement.className = 'hidden-info';
-                if (turnTimerDisplayElement) turnTimerDisplayElement.textContent = 'Waktu: -- detik';
+                if (turnTimerDisplayElement) turnTimerDisplayElement.textContent = 'Waktu: 30 detik';
             } else if (screenName === 'game') {
                 if (gameIdDisplayElement && currentGameId) {
                     gameIdDisplayElement.textContent = `Game ID: ${currentGameId}`;
@@ -316,7 +310,6 @@
                 gameIdDisplayElement.textContent = `Game ID: ${currentGameId}`;
             }
             answerSubmitted = false;
-            clearTurnTimer();
         }
 
         function displayQuestionAndOptions(questionData) {
@@ -342,64 +335,12 @@
             });
         }
 
-        function startTurnTimer() {
-            clearTurnTimer();
-            timeRemaining = TURN_TIME_LIMIT;
-            turnTimerDisplayElement.textContent = `Waktu: ${timeRemaining} detik`;
-            turnTimerDisplayElement.className = '';
-
-            turnTimer = setInterval(async () => {
-                timeRemaining--;
-                if (timeRemaining <= 0) {
-                    clearTurnTimer();
-                    if (isMyTurn && !answerSubmitted && currentGameId && currentQuestionData) {
-                        answerSubmitted = true;
-                        answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = true);
-                        try {
-                            const gs = await callAppsScript('submitAnswer', {
-                                gameId: currentGameId,
-                                playerName: localPlayerName,
-                                answer: ""
-                            });
-                            updateUIFromGameState(gs);
-                            showMessage("Waktu habis! Jawaban kosong dikirim.", 'error');
-                        } catch (error) {
-                            console.error("Error submitting blank answer on timeout:", error);
-                            showMessage("Gagal mengirim jawaban kosong. Coba lagi.", 'error');
-                            answerSubmitted = false;
-                            if (isMyTurn) {
-                                answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = false);
-                            }
-                        }
-                    }
-                } else {
-                    turnTimerDisplayElement.textContent = `Waktu: ${timeRemaining} detik`;
-                    if (timeRemaining <= 5) {
-                        turnTimerDisplayElement.className = 'warning';
-                    }
-                }
-            }, 1000);
-        }
-
-        function clearTurnTimer() {
-            if (turnTimer) {
-                clearInterval(turnTimer);
-                turnTimer = null;
-            }
-            timeRemaining = TURN_TIME_LIMIT;
-            if (turnTimerDisplayElement) {
-                turnTimerDisplayElement.textContent = 'Waktu: -- detik';
-                turnTimerDisplayElement.className = '';
-            }
-        }
-
         async function handleAnswerClick(event) {
             if (!isMyTurn || !currentGameId || !currentQuestionData || answerSubmitted) return;
 
             const chosenButton = event.currentTarget;
             const chosenAnswer = chosenButton.dataset.choice;
             answerSubmitted = true;
-            clearTurnTimer();
 
             answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => {
                 btn.disabled = true;
@@ -497,7 +438,6 @@
                 turnColor = gameState.winner === "Draw" ? 'var(--vs-text-color)' : (gameState.winner === 1 ? 'var(--player1-color-text)' : 'var(--player2-color-text)');
                 if (pollingInterval) clearInterval(pollingInterval);
                 pollingInterval = null;
-                clearTurnTimer();
                 questionDisplayElement.textContent = "Permainan Selesai!";
                 if (!gameState.feedback) {
                     answerOptionsElement.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = true);
@@ -506,19 +446,12 @@
                 turnText = "Menunggu Pemain 2 bergabung...";
                 questionDisplayElement.textContent = "Menunggu pemain lain...";
                 answerOptionsElement.innerHTML = "";
-                clearTurnTimer();
             } else if (gameState.gameStatus === "playing") {
                 const currentPlayerDetails = gameState.currentPlayerNum === 1 ? gameState.player1 : gameState.player2;
                 turnText = `Giliran: ${currentPlayerDetails ? currentPlayerDetails.name : ('Pemain ' + gameState.currentPlayerNum)}`;
                 turnColor = gameState.currentPlayerNum === 1 ? 'var(--player1-color-text)' : 'var(--player2-color-text)';
-                if (isMyTurn && !answerSubmitted && !gameState.feedback) {
-                    startTurnTimer();
-                } else {
-                    clearTurnTimer();
-                }
             } else {
                 turnText = "Menunggu permainan...";
-                clearTurnTimer();
             }
             turnInfoDisplayElement.textContent = turnText;
             turnInfoDisplayElement.style.color = turnColor;
@@ -575,7 +508,6 @@
             if (!currentGameId) return;
             if (!confirm("Yakin ingin mereset game ini? Ini akan memulai kuis baru dengan pertanyaan acak.")) return;
             try {
-                clearTurnTimer();
                 const gs = await callAppsScript('resetGame', { gameId: currentGameId, playerName: localPlayerName });
                 updateUIFromGameState(gs);
                 showMessage("Game direset. Kuis baru dimulai.", 'info');
@@ -590,7 +522,6 @@
         function leaveCurrentGame() {
             if (pollingInterval) clearInterval(pollingInterval);
             pollingInterval = null;
-            clearTurnTimer();
             const oldGameId = currentGameId;
             currentGameId = null;
             localPlayerNumber = 0;
